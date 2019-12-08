@@ -20,7 +20,7 @@
     <form id="main-form" method="post" enctype="multipart/form-data" action='${pageContext.request.contextPath}/count' novalidate>
 
         <!-- menulogin -->
-        <div style="margin-bottom: 20px">
+        <div style="margin: 30px 0px;">
             <label>
                 <input class="easyui-filebox"
                        id="file"
@@ -41,11 +41,7 @@
            id="download-btn" style="width: 100px" data-options="iconCls:'icon-save'">下载模板</a>
     </div>
 
-    <div style="margin: 20px;text-align: center;">
-        <label style="color: black;">
-            有bug可联系本人修改</br></br>作者 : 区域一台</br>112520 范芳兴</br>QQ：298105700
-        </label>
-    </div>
+
 </div>
 <script>
 

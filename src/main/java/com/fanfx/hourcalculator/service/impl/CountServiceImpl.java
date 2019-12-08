@@ -10,6 +10,8 @@ import org.apache.poi.xssf.usermodel.XSSFWorkbook;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
+import java.io.File;
+import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.text.DecimalFormat;
@@ -24,39 +26,40 @@ public class CountServiceImpl implements CountService {
             "序号,班组,排班工号,姓名,类型,名称,开始日期,结束日期,开始时间,结束时间,需删除,是否有加班,活动量,补时(分钟),补量(分钟),手工补量(次数),描述,操作人,操作人姓名,操作日期";
 
     @Override
-    public Workbook count(MultipartFile file) throws Exception {
-        return readExcel(file);
+    public Workbook count(File file, MultipartFile multipartFile) throws Exception {
+        return readExcel(file,multipartFile);
 
     }
 
-    private Workbook readExcel(MultipartFile file) throws Exception {
-        Workbook workbook;
-        InputStream inputStream = file.getInputStream();
-        String fileName = file.getOriginalFilename();
-        assert fileName != null;
+    private Workbook readExcel(File file, MultipartFile multipartFile) throws Exception {
+        FileInputStream inputStream = new FileInputStream(file);
+        String fileName = file.getName();
         String fileType = fileName.substring(fileName.lastIndexOf(".") + 1);
-        workbook = getWorkbook(inputStream, fileType);
-        checkExcel(workbook);
+        Workbook tempWorkbook = getWorkbook(inputStream, fileType);
+        Workbook workbook = getWorkbook(multipartFile.getInputStream(), fileType);
+
+        checkExcel(tempWorkbook);
+        Sheet tempSheet = tempWorkbook.getSheetAt(2);
         Sheet sheet = workbook.getSheetAt(2);
-        FormulaEvaluator formulaEvaluator = workbook.getCreationHelper().createFormulaEvaluator();
+        FormulaEvaluator formulaEvaluator = tempWorkbook.getCreationHelper().createFormulaEvaluator();
         // 解析每一行的数据，构造数据对象
-        int rowStart = sheet.getFirstRowNum() + 1;
-        int rowEnd = sheet.getLastRowNum();
+        int rowStart = tempSheet.getFirstRowNum() + 1;
+        int rowEnd = tempSheet.getLastRowNum();
         for (int rowNum = rowStart; rowNum < rowEnd; rowNum++) {
+            Row tempRow = tempSheet.getRow(rowNum);
             Row row = sheet.getRow(rowNum);
-            if (null == row) {
+            if (null == tempRow) {
                 continue;
             }
-            Date begin = null;
-            Date end = null;
+            Date begin ;
+            Date end ;
             String workTm;
-            List<Cell> list = new ArrayList<>();
             try {
-                Date startDt = (Date) convertCellValueToString(row.getCell(6), formulaEvaluator,list);
-                Date endDt = (Date) convertCellValueToString(row.getCell(7), formulaEvaluator,list);
-                Date startTm = (Date) convertCellValueToString(row.getCell(8), formulaEvaluator,list);
-                Date endTm = (Date) convertCellValueToString(row.getCell(9), formulaEvaluator,list);
-                workTm = (String) convertCellValueToString(row.getCell(10), formulaEvaluator,list);
+                Date startDt = (Date) convertCellValueToString(tempRow.getCell(6), formulaEvaluator);
+                Date endDt = (Date) convertCellValueToString(tempRow.getCell(7), formulaEvaluator);
+                Date startTm = (Date) convertCellValueToString(tempRow.getCell(8), formulaEvaluator);
+                Date endTm = (Date) convertCellValueToString(tempRow.getCell(9), formulaEvaluator);
+                workTm = (String) convertCellValueToString(tempRow.getCell(10), formulaEvaluator);
 
                 begin = DateTool.combine(startDt, startTm);
                 end = DateTool.combine(endDt, endTm);
@@ -65,10 +68,6 @@ public class CountServiceImpl implements CountService {
                 }
             } catch (Exception e) {
                 continue;
-            }finally{
-                for (Cell cell : list) {
-                    formulaEvaluator.evaluateFormulaCell(cell);
-                }
             }
 
             int overTm = getOverMin(begin, end, workTm);
@@ -113,11 +112,12 @@ public class CountServiceImpl implements CountService {
 
         Date temp = new Date(begin.getTime());
         if (wdMap.size()>0){
+            temp = DateTool.addMin(temp, 1);
             while (temp.getTime()<=end.getTime()){
                 int count = 1;
                 for (Date wStart : wdMap.keySet()) {
                     Date wEnd = wdMap.get(wStart);
-                    if (temp.getTime()>=wStart.getTime()&&temp.getTime()<=wEnd.getTime()){
+                    if (temp.getTime()>wStart.getTime()&&temp.getTime()<=wEnd.getTime()){
                         break;
                     }else if (count<wdMap.size()){
                         count++;
@@ -137,10 +137,9 @@ public class CountServiceImpl implements CountService {
      *
      * @param cell 内容
      * @param formulaEvaluator 公式转对象
-     * @param list
      * @return 内容
      */
-    private static Object convertCellValueToString(Cell cell, FormulaEvaluator formulaEvaluator, List<Cell> list) {
+    private static Object convertCellValueToString(Cell cell, FormulaEvaluator formulaEvaluator) {
         if (cell == null) {
             return null;
         }
@@ -166,8 +165,7 @@ public class CountServiceImpl implements CountService {
                 break;
             case FORMULA: // 公式
                 //                returnValue = cell.getCellFormula()
-                returnValue = convertCellValueToString(formulaEvaluator.evaluateInCell(cell),formulaEvaluator,list);
-                list.add(cell);
+                returnValue = convertCellValueToString(formulaEvaluator.evaluateInCell(cell),formulaEvaluator);
                 break;
             case ERROR: // 故障
                 break;
