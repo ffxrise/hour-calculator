@@ -38,6 +38,7 @@ public class CountAction {
         MultipartFile file = vo.getFile();
         String tmpName = "temp" + file.getOriginalFilename();
         File tempFile = new File(tmpName);
+        logger.info("temp file name : "+tempFile.getName());
         BufferedOutputStream bo = new BufferedOutputStream(new FileOutputStream(new File(tmpName)));
         BufferedInputStream bs = new BufferedInputStream(file.getInputStream());
         int r;
@@ -54,21 +55,23 @@ public class CountAction {
         workbook.write(fs);
         fs.flush();
         fs.close();
-        tempFile.delete();
+        workbook.close();
+        logger.info("temp file name : "+tempFile.getName());
+        boolean delete = tempFile.delete();
+        logger.info("delete is success : " + delete);
+        System.out.println("delete is success : " + delete);
         return new DataResult(SysCodeEnums.SUCCESS);
     }
 
     @GetMapping(value = "download")
     public String download(HttpServletResponse response) throws Exception {
-//        MediaType mediaType =
-//                MediaTypeUtils.getMediaTypeForFileName(this.servletContext, "demo.xls");
 
         InputStream resourceAsStream =
-                getClass().getClassLoader().getResourceAsStream("static/demo.xls");
+                getClass().getClassLoader().getResourceAsStream("static/demo.xlsx");
 
 //        response.setContentType(mediaType.toString());
         response.setContentType("application/octet-stream");
-        response.setHeader(HttpHeaders.CONTENT_DISPOSITION, "attachment;filename=demo.xls");
+        response.setHeader(HttpHeaders.CONTENT_DISPOSITION, "attachment;filename=demo.xlsx");
         response.setContentLength(resourceAsStream.available());
 
         try (BufferedInputStream inStream = new BufferedInputStream(resourceAsStream)) {

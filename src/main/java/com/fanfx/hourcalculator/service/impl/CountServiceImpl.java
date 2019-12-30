@@ -28,56 +28,55 @@ public class CountServiceImpl implements CountService {
     @Override
     public Workbook count(File file, MultipartFile multipartFile) throws Exception {
         return readExcel(file,multipartFile);
-
     }
 
     private Workbook readExcel(File file, MultipartFile multipartFile) throws Exception {
-        FileInputStream inputStream = new FileInputStream(file);
         String fileName = file.getName();
         String fileType = fileName.substring(fileName.lastIndexOf(".") + 1);
-        Workbook tempWorkbook = getWorkbook(inputStream, fileType);
-        Workbook workbook = getWorkbook(multipartFile.getInputStream(), fileType);
-
-        checkExcel(tempWorkbook);
-        Sheet tempSheet = tempWorkbook.getSheetAt(2);
-        Sheet sheet = workbook.getSheetAt(2);
-        FormulaEvaluator formulaEvaluator = tempWorkbook.getCreationHelper().createFormulaEvaluator();
-        // 解析每一行的数据，构造数据对象
-        int rowStart = tempSheet.getFirstRowNum() + 1;
-        int rowEnd = tempSheet.getLastRowNum();
-        for (int rowNum = rowStart; rowNum < rowEnd; rowNum++) {
-            Row tempRow = tempSheet.getRow(rowNum);
-            Row row = sheet.getRow(rowNum);
-            if (null == tempRow) {
-                continue;
-            }
-            Date begin ;
-            Date end ;
-            String workTm;
-            try {
-                Date startDt = (Date) convertCellValueToString(tempRow.getCell(6), formulaEvaluator);
-                Date endDt = (Date) convertCellValueToString(tempRow.getCell(7), formulaEvaluator);
-                Date startTm = (Date) convertCellValueToString(tempRow.getCell(8), formulaEvaluator);
-                Date endTm = (Date) convertCellValueToString(tempRow.getCell(9), formulaEvaluator);
-                workTm = (String) convertCellValueToString(tempRow.getCell(10), formulaEvaluator);
-
-                begin = DateTool.combine(startDt, startTm);
-                end = DateTool.combine(endDt, endTm);
-                if (begin == null || end == null || Strings.isNullOrEmpty(workTm)||begin.after(end)) {
+        try(FileInputStream inputStream = new FileInputStream(file)){
+            Workbook tempWorkbook = getWorkbook(inputStream, fileType);
+            Workbook workbook = getWorkbook(multipartFile.getInputStream(), fileType);
+            checkExcel(tempWorkbook);
+            Sheet tempSheet = tempWorkbook.getSheetAt(2);
+            Sheet sheet = workbook.getSheetAt(2);
+            FormulaEvaluator formulaEvaluator = tempWorkbook.getCreationHelper().createFormulaEvaluator();
+// 解析每一行的数据，构造数据对象
+            int rowStart = tempSheet.getFirstRowNum() + 1;
+            int rowEnd = tempSheet.getLastRowNum();
+            for (int rowNum = rowStart; rowNum < rowEnd; rowNum++) {
+                Row tempRow = tempSheet.getRow(rowNum);
+                Row row = sheet.getRow(rowNum);
+                if (null == tempRow) {
                     continue;
                 }
-            } catch (Exception e) {
-                continue;
-            }
+                Date begin ;
+                Date end ;
+                String workTm;
+                try {
+                    Date startDt = (Date) convertCellValueToString(tempRow.getCell(6), formulaEvaluator);
+                    Date endDt = (Date) convertCellValueToString(tempRow.getCell(7), formulaEvaluator);
+                    Date startTm = (Date) convertCellValueToString(tempRow.getCell(8), formulaEvaluator);
+                    Date endTm = (Date) convertCellValueToString(tempRow.getCell(9), formulaEvaluator);
+                    workTm = (String) convertCellValueToString(tempRow.getCell(10), formulaEvaluator);
 
-            int overTm = getOverMin(begin, end, workTm);
-            Cell cell = row.createCell(20, CellType.NUMERIC);
-            cell.setCellValue(overTm);
+                    begin = DateTool.combine(startDt, startTm);
+                    end = DateTool.combine(endDt, endTm);
+                    if (begin == null || end == null || Strings.isNullOrEmpty(workTm)||begin.after(end)) {
+                        continue;
+                    }
+                } catch (Exception e) {
+                    continue;
+                }
+
+                int overTm = getOverMin(begin, end, workTm);
+                Cell cell = row.createCell(20, CellType.NUMERIC);
+                cell.setCellValue(overTm);
+            }
+            Row row = sheet.getRow(0);
+            Cell cell = row.createCell(20, CellType.STRING);
+            cell.setCellValue("加班分钟数");
+            return workbook;
         }
-        Row row = sheet.getRow(0);
-        Cell cell = row.createCell(20, CellType.STRING);
-        cell.setCellValue("加班分钟数");
-        return workbook;
     }
 
     /**
